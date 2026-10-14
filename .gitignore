@@ -1,0 +1,10 @@
+.env
+uploads/*
+!uploads/.gitkeep
+uploads/processed/
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.faiss
+*.pkl

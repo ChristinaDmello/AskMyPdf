@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AskMyPdf — RAG PDF Q&A</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>AskMyPdf</h1>
+            <p class="subtitle">Upload a PDF and ask questions.</p>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <main class="grid">
+            <!-- Upload Section -->
+            <section class="card">
+                <h2>1. Upload PDF</h2>
+                <p class="hint">Extract text, create chunks, build embeddings, and store in FAISS.</p>
+
+                <form action="{{ url_for('upload_pdf') }}" method="post" enctype="multipart/form-data" class="form">
+                    <label for="pdf_file" class="file-label">
+                        <span class="file-label-text">Choose PDF file</span>
+                        <input type="file" id="pdf_file" name="pdf_file" accept=".pdf" required>
+                    </label>
+                    <button type="submit" class="btn btn-primary">Upload &amp; Process</button>
+                </form>
+
+                {% if document_id %}
+                    <div class="status-box success">
+                        <strong>Ready:</strong> {{ filename }}
+                        <br>
+                        <span>{{ chunk_count }} chunks indexed</span>
+                    </div>
+                    <form action="{{ url_for('clear_session') }}" method="post" class="inline-form">
+                        <button type="submit" class="btn btn-secondary btn-sm">Upload New PDF</button>
+                    </form>
+                {% else %}
+                    <div class="status-box muted">No PDF uploaded yet.</div>
+                {% endif %}
+            </section>
+
+            <!-- Ask Question Section -->
+            <section class="card">
+                <h2>2. Ask a Question</h2>
+                <p class="hint">Your question is embedded, matched in FAISS, then sent to an OpenRouter LLM with context.</p>
+
+                <form action="{{ url_for('ask_question') }}" method="post" class="form">
+                    <textarea
+                        id="question"
+                        name="question"
+                        rows="4"
+                        placeholder="e.g. What is the main conclusion of this document?"
+                        {% if not document_id %}disabled{% endif %}
+                        required
+                    >{{ question or '' }}</textarea>
+                    <button type="submit" class="btn btn-primary" {% if not document_id %}disabled{% endif %}>
+                        Get Answer
+                    </button>
+                </form>
+            </section>
+        </main>
+
+        {% if answer %}
+            <section class="card answer-card">
+                <h2>3. AI Answer</h2>
+                <div class="answer-box">{{ answer }}</div>
+            </section>
+        {% endif %}
+
+        {% if retrieved_chunks %}
+            <section class="card context-card">
+                <h2>4. Retrieved Context</h2>
+                <p class="hint">Top {{ retrieved_chunks|length }} chunks used to generate the answer (lower score = more similar).</p>
+
+                <div class="chunks">
+                    {% for item in retrieved_chunks %}
+                        <article class="chunk">
+                            <div class="chunk-header">
+                                <span class="chunk-rank">#{{ item.rank }}</span>
+                                <span class="chunk-score">L2 distance: {{ "%.4f"|format(item.score) }}</span>
+                            </div>
+                            <p class="chunk-text">{{ item.chunk }}</p>
+                        </article>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
+
+        <footer class="footer">
+            <p>RAG Pipeline: pdfplumber → chunking → Sentence Transformers → FAISS → OpenRouter LLM</p>
+        </footer>
+    </div>
+</body>
+</html>
